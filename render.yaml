@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: mapa-interativo-imigracao-no-brasil
+    runtime: python
+    plan: starter
+    region: virginia
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    healthCheckPath: /healthz
+    envVars:
+      - key: FLASK_DEBUG
+        value: "0"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mapa-interativo-imigracao-db
+          property: connectionString
+
+databases:
+  - name: mapa-interativo-imigracao-db
+    plan: basic-1gb
+    region: virginia
+    postgresMajorVersion: "16"
+    databaseName: imigracao
+    user: imigracao

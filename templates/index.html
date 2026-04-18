@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cartografia da Imigracao Historica Brasileira</title>
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="{{ url_for('static', filename='images/favicon-boat.svg') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      crossorigin=""
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/styles.css') }}?v=20260416d"
+    />
+  </head>
+  <body>
+    <main class="page-shell">
+      <section class="intro-card">
+        <header class="hero-nav">
+          <div class="hero-brand">
+            <span class="hero-brand-mark" aria-hidden="true"></span>
+            <span class="hero-brand-text">Mapa interativo da Imigracao Histórica ao Brasil</span>
+          </div>
+
+          <nav class="hero-nav-links" aria-label="Navegacao principal">
+            <a href="#about-section">Fontes de Pesquisa</a>
+            <a class="hero-explore hero-explore-nav" href="#map-section">Explorar Mapa</a>
+          </nav>
+        </header>
+
+        <div class="intro-hero">
+          <div class="intro-copy">
+            <p class="eyebrow">Atlas documental</p>
+            <h1>Rotas, origens e destinos da imigracao no Brasil</h1>
+            <p class="lead">
+              Navegue por diferentes recortes territoriais da imigracao historica,
+              filtre por sobrenome e pais de origem, avance pela linha do tempo e abra
+              detalhes de localidades, fluxos e registros diretamente no mapa.
+            </p>
+            <a class="hero-explore" href="#map-section">Explorar Mapa</a>
+          </div>
+
+          <figure class="intro-visual">
+            <div class="hero-image-frame">
+              <img
+                src="{{ url_for('static', filename='images/Steamship.png') }}"
+                alt="Navio a vapor representando as travessias migratorias para o Brasil"
+              />
+            </div>
+            <figcaption class="hero-quote">
+              "A imigração histórica ao Brasil foi marcada por coragem, saudade e reconstrução, conectando mundos através de cartas e histórias de luta"
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="map-section">
+        <section class="map-shell" aria-label="Mapa e linha do tempo">
+          <section class="map-toolbar" aria-label="Troca de mapa">
+            <div class="map-toolbar-copy">
+              <p class="eyebrow">Modo do mapa</p>
+            </div>
+
+            <div class="map-toolbar-actions">
+              <div class="view-toggle-scroller">
+                <div class="view-toggle" role="group" aria-label="Trocar modo do mapa">
+                  <button class="view-toggle-button is-active" data-map-view="south_brazil" type="button">
+                    Sul do Brasil
+                  </button>
+                  <button class="view-toggle-button" data-map-view="southeast_brazil" type="button">
+                    Sudeste do Brasil
+                  </button>
+                  <button class="view-toggle-button" data-map-view="portugal" type="button">
+                    Portugal
+                  </button>
+                  <button class="view-toggle-button" data-map-view="germany" type="button">
+                    Alemanha
+                  </button>
+                  <button class="view-toggle-button" data-map-view="italy" type="button">
+                    Italia
+                  </button>
+                  <button class="view-toggle-button" data-map-view="europe_rest" type="button">
+                    Resto da Europa
+                  </button>
+                  <button class="view-toggle-button" data-map-view="united_states" type="button">
+                    Estados Unidos
+                  </button>
+                </div>
+              </div>
+              <details class="future-view-menu">
+                <summary class="view-toggle-button future-menu-trigger" aria-label="Ver mais paises">
+                  +
+                </summary>
+                <div class="future-view-menu-list" role="menu" aria-label="Paises futuros">
+                  <button class="future-view-item" type="button" disabled>Africa</button>
+                  <button class="future-view-item" type="button" disabled>Japao</button>
+                </div>
+              </details>
+            </div>
+          </section>
+
+          <div id="map-content-row">
+            <div id="map-viewport-wrap">
+              <div class="map-stage">
+                <div id="map" aria-label="Mapa temporal de imigrantes"></div>
+                <div id="map-loading" class="map-loading" aria-live="polite">
+                  <div class="map-loading-card">
+                    <div class="map-loading-journey" aria-hidden="true">
+                      <span class="map-loading-route"></span>
+                      <span class="map-loading-boat">
+                        <span class="map-loading-boat-sail"></span>
+                        <span class="map-loading-boat-hull"></span>
+                      </span>
+                    </div>
+                    <strong id="map-loading-text">Carregando dados do mapa...</strong>
+                  </div>
+                </div>
+              </div>
+
+              <section class="timeline-card" aria-label="Linha do tempo">
+                <div class="timeline-header">
+                  <div class="timeline-title-group">
+                    <p class="eyebrow">Linha do Tempo</p>
+                    <h2 id="current-year">--</h2>
+                  </div>
+                  <div class="timeline-kpis">
+                    <div class="timeline-kpi">
+                      <span class="kpi-label">Total de imigrantes mapeados</span>
+                      <strong id="total-records">0</strong>
+                    </div>
+                    <div class="timeline-kpi">
+                      <span id="total-places-label" class="kpi-label">Cidades mapeadas</span>
+                      <strong id="total-cities">0</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <input
+                  id="year-slider"
+                  type="range"
+                  min="0"
+                  max="0"
+                  step="1"
+                  value="0"
+                  disabled
+                />
+
+                <div class="timeline-scale">
+                  <span id="year-min">--</span>
+                  <span id="year-max">--</span>
+                </div>
+
+                <div class="data-load-panel" aria-label="Controle de volume de dados">
+                  <p id="data-load-note" class="data-load-note">
+                    Devido ao volume da base, o mapa carrega apenas parte dos registros visiveis para responder mais rapido.
+                  </p>
+                  <p id="data-load-warning" class="data-load-warning">
+                    Aviso: carregar todos os dados pode deixar o sistema lento.
+                  </p>
+                  <div class="data-load-actions">
+                    <button id="load-all-data" type="button">Carregar todos os dados</button>
+                    <button id="load-less-data" type="button" hidden>Carregar menos dados</button>
+                  </div>
+                  <div id="data-load-stats" class="data-load-stats">
+                    <p class="muted">Carregando estatisticas do recorte...</p>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <aside id="map-side-panel" class="info-card">
+          <section id="panel-context" class="info-block">
+            <h2 id="panel-title">Mapa de Imigracao ao Sul do Brasil</h2>
+            <p id="panel-description">
+              A imigracao europeia no Sul do Brasil marcou profundamente a formacao da regiao,
+              com colonias de alemaes, italianos, poloneses e outros povos que impulsionaram
+              o povoamento e a agricultura desde o seculo XIX.
+            </p>
+          </section>
+
+          <section id="location-detail-panel" class="info-block compact-panel">
+            <div class="compact-panel-header compact-panel-header-stack">
+              <div>
+                <h3 id="location-detail-title">Localidade selecionada</h3>
+                <p class="compact-note">
+                  Clique em um ponto no mapa para mostrar mais sobre a cidade em questao
+                </p>
+              </div>
+            </div>
+            <div id="location-detail-content" class="location-panel-empty">
+              Nenhuma localidade selecionada.
+            </div>
+          </section>
+
+          <section id="surname-filter-panel" class="search-panel search-panel-compact info-block" aria-label="Filtrar sobrenome">
+            <label class="search-label" for="surname-search">Filtrar por sobrenome</label>
+            <div class="search-row">
+              <input
+                id="surname-search"
+                type="search"
+                placeholder="Ex.: Antoni, Monod, Schmidt"
+                autocomplete="off"
+                spellcheck="false"
+              />
+              <button id="clear-search" type="button">Limpar</button>
+            </div>
+            <p id="search-feedback" class="search-feedback">
+              Sem filtro aplicado. O mapa mostra todos os sobrenomes.
+            </p>
+          </section>
+
+          <section id="country-filter-panel" class="info-block compact-panel">
+            <div class="compact-panel-header">
+              <div>
+                <h3>Filtrar por pais</h3>
+                <p class="compact-note">Refine o mapa por origem sem alongar o painel</p>
+              </div>
+              <button id="clear-country-filters" type="button">Limpar</button>
+            </div>
+            <p id="country-filter-feedback" class="filter-feedback">
+              Todos os paises disponiveis estao ativos.
+            </p>
+            <div
+              id="country-filter-list"
+              class="country-filter-list"
+              aria-label="Lista de paises para filtrar"
+            >
+              <p class="muted">Carregando paises...</p>
+            </div>
+          </section>
+
+          <div id="insight-panel" class="info-block">
+            <div class="insight-switcher-header">
+              <h3 id="ranking-title">Hotspots no ano atual</h3>
+              <div class="insight-switcher" role="tablist" aria-label="Trocar lista do painel">
+                <button class="insight-switcher-button is-active" data-ranking-mode="places" type="button">
+                  Hotspots
+                </button>
+                <button class="insight-switcher-button" data-ranking-mode="surnames" type="button">
+                  Sobrenomes
+                </button>
+                <button class="insight-switcher-button" data-ranking-mode="flows" type="button">
+                  Fluxos
+                </button>
+              </div>
+            </div>
+            <ul id="insight-ranking" class="ranking-list">
+              <li>Carregando dados...</li>
+            </ul>
+          </div>
+            </aside>
+          </div>
+        </section>
+      </section>
+
+      <section id="about-section" class="sources-card" aria-labelledby="sources-title">
+        <p class="eyebrow">Fontes da Pesquisa</p>
+        <h2 id="sources-title">Base documental utilizada</h2>
+        <p class="sources-intro">
+          Esta visualizacao foi construida a partir de listas, indices
+          onomasticos e documentos historicos consolidados em uma base
+          unificada para exploracao genealogica e historica.
+        </p>
+        <ul class="source-list">
+          <li>Arquivo Historico de Joinville - Listas de Imigrantes</li>
+          <li>Arquivo Publico de Santa Catarina - Indice Onomastico de Imigrantes (1859/1920)</li>
+          <li>Arquivo Publico de Santa Catarina - Indice Onomastico da Serie Memoriais de Lotes, Titulos Definitivos e Provisorios de Terras (1846/1930)</li>
+          <li>Arquivo Publico de Santa Catarina - Indice Onomastico dos Requerimentos de Concessoes de Terras da Diretoria de Terras e Colonizacao (1870/1908)</li>
+          <li>Arquivo Publico de Santa Catarina - Indice Onomastico dos Oficios da Presidencia da Provincia para as Colonias (1875/1881)</li>
+          <li>Arquivo Publico de Santa Catarina - Indice Onomastico dos Imigrantes Vindos pelos Navios Hersey e McRae (1949)</li>
+          <li>Arquivo Publico de Santa Catarina - Indice Onomastico das Series Documentais Passaportes e Carteiras de Identidades de Estrangeiros e Brasileiros (1920/1993)</li>
+          <li>Arquivo Publico de Santa Catarina - Indice Onomastico dos Registros e Termos de Naturalizacao (1856/1963)</li>
+          <li>Arquivo Publico do Parana - Catalogo de Documentos Referentes a Imigrantes no Estado do Parana (1861/1984)</li>
+          <li>Arquivo Publico do Parana - Catalogo de Documentos: Oficios e Requerimentos Referentes a Imigrantes no Estado do Parana (1854/1902)</li>
+          <li>Arquivo Nacional / gov.br - Registro de Imigrantes do Porto do Rio de Janeiro</li>
+        </ul>
+        <p class="muted">
+          Os dados podem conter grafias historicas, ruido de OCR e
+          inferencias de localidade feitas a partir do proprio documento.
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-shell">
+        <section class="footer-block">
+          <p class="eyebrow">Contato:</p>
+          <p class="footer-name">Joao Paulo de Avila</p>
+          <p><a href="mailto:joaopaulo1448@gmail.com">joaopaulo1448@gmail.com</a></p>
+          <p>
+            <a href="https://www.linkedin.com/in/joaopaulodeavila1/" target="_blank" rel="noreferrer">
+              linkedin.com/in/joaopaulodeavila1
+            </a>
+          </p>
+        </section>
+
+        <section class="footer-block">
+          <p class="eyebrow">Sobre</p>
+          <p>
+            Projeto de visualizacao historica voltado a migracao, memoria,
+            genealogia e leitura espacial de registros documentais.
+          </p>
+          <p class="footer-meta">Base em desenvolvimento continuo para pesquisa e divulgacao historica.</p>
+          <p class="footer-meta">&copy; 2026 Joao Paulo de Avila. Todos os direitos reservados.</p>
+        </section>
+      </div>
+    </footer>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      crossorigin=""
+    ></script>
+    <script src="{{ url_for('static', filename='js/map.js') }}?v=20260418d"></script>
+  </body>
+</html>
