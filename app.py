@@ -1244,10 +1244,11 @@ def get_postgres_connection(row_factory=dict_row):
 
 def database_boot_message():
     return (
-        "Banco Postgres nao esta pronto para as rotas de dados. "
-        "Suba o banco com `docker compose up -d postgres`, "
-        "recarregue a base com `python .\\scripts\\load_postgres_map_data.py` "
-        "e depois rode `python app.py`."
+        "Banco Postgres nao esta pronto para a aplicacao. "
+        "Verifique se a `DATABASE_URL` esta configurada corretamente e se as tabelas "
+        "`map_points`, `map_view_stats` e `map_build_meta` ja foram carregadas. "
+        "Em ambiente local, voce pode subir o banco com `docker compose up -d postgres` "
+        "e recarregar a base com `python .\\scripts\\load_postgres_map_data.py`."
     )
 
 
@@ -3029,6 +3030,19 @@ def query_immigration_points(view, year_max=None, surname_query="", country_keys
     )
 
 
+def query_point_details(view, point_id):
+    require_postgres_ready()
+    normalized_view = clean_text(view).lower() or MAP_CONFIG["default_view"]
+    normalized_point_id = clean_text(point_id)
+    if not normalized_point_id:
+        return None
+    return _cached_query_point_details_db(
+        current_data_stamp(),
+        normalized_view,
+        normalized_point_id,
+    )
+
+
 @lru_cache(maxsize=128)
 def _cached_query_location_details(data_stamp, view, city, year_max=None, surname_query="", country_keys=()):
     data = load_immigration_points(view)
@@ -3112,17 +3126,6 @@ def index():
     return render_template("index.html")
 
 
-@app.get("/healthz")
-def healthz():
-    return jsonify(
-        {
-            "status": "ok",
-            "database_ready": postgres_ready(),
-            "database_url_present": bool(database_url()),
-        }
-    )
-
-
 @app.errorhandler(DatabaseNotReadyError)
 def handle_database_not_ready(error):
     message = str(error) or database_boot_message()
@@ -3161,8 +3164,7 @@ def point_details():
     if not point_id:
         return jsonify({"error": "point_id obrigatorio"}), 400
 
-    require_postgres_ready()
-    point = _cached_query_point_details_db(current_data_stamp(), view, point_id)
+    point = query_point_details(view, point_id)
     if not point:
         return jsonify({"error": "ponto nao encontrado"}), 404
 

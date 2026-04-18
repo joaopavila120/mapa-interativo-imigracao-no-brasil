@@ -81,6 +81,11 @@ def parse_args():
         action="store_true",
         help="Nao importa a tabela immigrant_records. Recomendado para deploy gratuito, pois o app nao usa essa tabela em runtime.",
     )
+    parser.add_argument(
+        "--light-indexes",
+        action="store_true",
+        help="Cria apenas os indices principais do mapa. Recomendado para bancos gratuitos menores, como Streamlit Cloud + Supabase.",
+    )
     return parser.parse_args()
 
 
@@ -269,15 +274,11 @@ def insert_build_meta(conn, csv_path):
         )
 
 
-def create_indexes(conn, include_immigrant_records=True):
+def create_indexes(conn, include_immigrant_records=True, light_indexes=False):
     with conn.cursor() as cur:
         cur.execute(
             "CREATE INDEX IF NOT EXISTS idx_map_points_view_year "
             "ON map_points (view_key, year_num)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_map_points_view_order "
-            "ON map_points (view_key, year_num, city, surname, point_id)"
         )
         cur.execute(
             "CREATE INDEX IF NOT EXISTS idx_map_points_view_country_year "
@@ -288,25 +289,30 @@ def create_indexes(conn, include_immigrant_records=True):
             "ON map_points (view_key, city, year_num)"
         )
         cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_map_points_view_city_country_year "
-            "ON map_points (view_key, city, country_filter_key, year_num)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_map_points_view_country_label "
-            "ON map_points (view_key, country_filter_label)"
-        )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_map_points_view_country_label_year "
-            "ON map_points (view_key, year_num, country_filter_label)"
-        )
-        cur.execute(
             "CREATE INDEX IF NOT EXISTS idx_map_points_surname_search_trgm "
             "ON map_points USING gin (surname_search gin_trgm_ops)"
         )
-        cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_map_points_full_name_search_trgm "
-            "ON map_points USING gin (full_name_search gin_trgm_ops)"
-        )
+        if not light_indexes:
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_map_points_view_order "
+                "ON map_points (view_key, year_num, city, surname, point_id)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_map_points_view_city_country_year "
+                "ON map_points (view_key, city, country_filter_key, year_num)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_map_points_view_country_label "
+                "ON map_points (view_key, country_filter_label)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_map_points_view_country_label_year "
+                "ON map_points (view_key, year_num, country_filter_label)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_map_points_full_name_search_trgm "
+                "ON map_points USING gin (full_name_search gin_trgm_ops)"
+            )
         if include_immigrant_records:
             cur.execute("ANALYZE immigrant_records")
         cur.execute("ANALYZE map_points")
@@ -347,7 +353,11 @@ def main():
             insert_build_meta(conn, csv_path)
 
             print("[5/5] Criando indices e analisando tabelas")
-            create_indexes(conn, include_immigrant_records=not args.skip_immigrant_records)
+            create_indexes(
+                conn,
+                include_immigrant_records=not args.skip_immigrant_records,
+                light_indexes=args.light_indexes,
+            )
             conn.commit()
     except Exception as exc:
         raise SystemExit(

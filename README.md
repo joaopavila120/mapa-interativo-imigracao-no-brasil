@@ -1,32 +1,33 @@
 # Cartografia da Imigracao Historica Brasileira
 
-Aplicacao web para extracao, tratamento, carga em PostgreSQL e visualizacao cartografica de registros historicos de imigracao no Brasil.
+Aplicacao para extracao, tratamento, carga em PostgreSQL e exploracao visual da imigracao historica brasileira.
 
-O projeto hoje roda assim:
+O projeto possui duas camadas principais:
 
-- o CSV tratado alimenta o banco;
-- a aplicacao Flask consulta apenas o PostgreSQL em runtime;
-- o mapa usa filtros por recorte, ano, sobrenome e pais diretamente sobre a base indexada.
+- pipeline de dados para extrair PDFs, tratar os registros e carregar o banco;
+- interface publicada em Streamlit, conectada a um PostgreSQL externo.
 
 ## Estrutura principal
 
 ```text
 project/
 |- app.py
+|- streamlit_app.py
 |- docker-compose.yml
-|- render.yaml
 |- requirements.txt
 |- scripts/
 |- src/
 |- static/
 |- templates/
-`- tests/
+|- tests/
+`- README.md
 ```
 
 ## Requisitos locais
 
 - Python 3.13
 - Docker Desktop
+- PostgreSQL local ou remoto
 
 ## Instalacao local
 
@@ -36,182 +37,205 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-## Rodando localmente com Postgres
+## Rodando localmente
 
-Suba o banco:
+### Banco local com Docker
 
 ```powershell
 docker compose up -d postgres
 ```
 
-Carregue a base tratada no banco:
+### Carregar a base no banco local
+
+Carga completa:
 
 ```powershell
 python .\scripts\load_postgres_map_data.py
 ```
 
-Suba a aplicacao:
+Carga enxuta para deploy gratuito:
 
 ```powershell
-python app.py
+python .\scripts\load_postgres_map_data.py --skip-immigrant-records --light-indexes
 ```
 
-Acesse:
-
-```text
-http://127.0.0.1:5000
-```
-
-## Fluxo local minimo
+### Subir a interface Streamlit local
 
 ```powershell
-docker compose up -d postgres
-python .\scripts\load_postgres_map_data.py
-python app.py
+streamlit run .\streamlit_app.py
 ```
 
-## Render e GitHub
+## O que e usado em runtime
 
-O repositorio ja esta preparado para deploy no Render:
+Em runtime, a interface consulta apenas:
 
-- `render.yaml` cria o Web Service e o Postgres;
-- `.python-version` fixa a versao do Python usada no build;
-- `.gitignore` evita subir dados locais pesados;
-- `gunicorn` ja esta nas dependencias;
-- `/healthz` ja existe para health check.
+- `map_points`
+- `map_view_stats`
+- `map_build_meta`
 
-Importante:
+O CSV tratado e usado apenas para alimentar o banco.
 
-- `data/` e `output/` ficam fora do GitHub;
-- a carga do banco e feita a partir da sua maquina local, usando o CSV local;
-- a aplicacao em producao le somente o Postgres.
-- o `render.yaml` atual esta configurado para o plano gratuito do Render.
+## Publicacao gratuita recomendada
 
-### Limites do plano gratuito do Render
+Para manter o projeto 100% gratuito, o fluxo recomendado e:
 
-O deploy gratuito funciona para esse projeto, mas com limites importantes:
+- codigo no GitHub
+- interface no Streamlit Community Cloud
+- banco PostgreSQL gratuito externo
 
-- o Web Service gratuito entra em idle depois de um periodo sem trafego e demora para voltar;
-- o Postgres gratuito tem limite de 1 GB;
-- o Postgres gratuito expira depois de 30 dias;
-- o Postgres gratuito nao tem backups.
+Neste projeto, o caminho mais direto e:
 
-Por isso, o carregamento recomendado para deploy gratuito usa:
+- Streamlit Community Cloud para a interface
+- Supabase Free para o PostgreSQL
+
+Para a base atual, a melhor estrategia pratica e carregar uma versao enxuta do banco:
 
 ```powershell
-python .\scripts\load_postgres_map_data.py --skip-immigrant-records
+python .\scripts\load_postgres_map_data.py --skip-immigrant-records --light-indexes
 ```
 
-Esse modo nao importa a tabela `immigrant_records`, que nao e usada pela aplicacao em runtime, e reduz bastante o tamanho final do banco.
+Esse modo:
 
-### 1. Subir o codigo para o GitHub
+- nao importa `immigrant_records`
+- cria apenas os indices principais do mapa
+- reduz bastante o tamanho final do banco para publicacao gratuita
 
-No diretorio do projeto:
+Na validacao local deste projeto, esse perfil enxuto ficou em cerca de `398 MB`, o que o torna compativel com um banco gratuito de `500 MB`.
+
+## Passo a passo exato para publicar no Streamlit Community Cloud
+
+### 1. Suba o codigo para o GitHub
+
+No PowerShell, dentro da pasta do projeto:
 
 ```powershell
 git init
 git branch -M main
 git remote add origin https://github.com/joaopavila120/mapa-interativo-imigracao-no-brasil.git
 git add .
-git commit -m "Prepare project for Render deployment"
+git commit -m "Prepare Streamlit deployment"
 git push -u origin main
 ```
 
-Se o repositorio ja estiver iniciado e o `origin` ja existir:
+Se o repositorio ja existir localmente:
 
 ```powershell
 git remote set-url origin https://github.com/joaopavila120/mapa-interativo-imigracao-no-brasil.git
 git add .
-git commit -m "Prepare project for Render deployment"
+git commit -m "Prepare Streamlit deployment"
 git push -u origin main
 ```
 
-### 2. Criar a infraestrutura no Render
+### 2. Crie um banco PostgreSQL gratuito externo
 
-O caminho mais simples e usar Blueprint, porque o `render.yaml` ja esta pronto.
+O app Streamlit nao hospeda banco por conta propria. Voce precisa criar um PostgreSQL externo.
 
-No Render:
+O projeto foi preparado para funcionar com qualquer PostgreSQL compativel com `DATABASE_URL`.
 
-1. Entre em `Dashboard > New > Blueprint`.
-2. Conecte sua conta do GitHub ao Render, se ainda nao conectou.
-3. Selecione o repositorio `mapa-interativo-imigracao-no-brasil`.
-4. Escolha a branch `main`.
-5. Confirme o arquivo `render.yaml`.
-6. Revise os recursos que vao ser criados.
+Para um fluxo 100% gratuito, use um projeto no Supabase Free.
 
-Configuracao atual do `render.yaml`:
+No Supabase:
 
-- Web Service: `free`
-- Postgres: `free`
-- Regiao: `virginia`
+1. Crie uma conta
+2. Clique em `New project`
+3. Escolha nome, senha do banco e regiao
+4. Aguarde o projeto ficar pronto
+5. Abra o botao `Connect`
+6. Copie a `Session pooler` connection string
 
-Se quiser mudar custo ou capacidade, edite o `render.yaml` antes do deploy e faca novo push.
+Use a `Session pooler` connection string, porque ela e a opcao mais segura para um app hospedado e conectado por IPv4/IPv6 via pooler.
 
-Depois clique em `Deploy Blueprint`.
-
-### 3. Esperar o banco ficar disponivel
-
-Depois que o Blueprint terminar:
-
-1. Abra o banco `mapa-interativo-imigracao-db` no Render.
-2. Abra `Connect`.
-3. Copie a `External Database URL`.
-
-Essa URL sera usada apenas na sua maquina local para popular o banco remoto.
-
-### 4. Carregar os dados no banco remoto do Render
-
-No seu PowerShell local:
-
-```powershell
-$env:DATABASE_URL="COLE_AQUI_A_EXTERNAL_DATABASE_URL_DO_RENDER"
-python .\scripts\load_postgres_map_data.py --skip-immigrant-records
-```
-
-Esse script vai:
-
-- materializar `map_points`;
-- materializar `map_view_stats`;
-- criar indices para acelerar o mapa.
-
-Observacao:
-
-- para esse passo funcionar, o CSV tratado precisa existir localmente em `data\processed\records_clean.csv`;
-- esse arquivo nao vai para o GitHub;
-- ele so serve para alimentar o banco.
-- no modo gratuito, a tabela `immigrant_records` fica de fora de proposito para caber no limite de 1 GB do Render.
-
-### 5. Validar se a aplicacao online ficou pronta
-
-Depois da carga:
-
-1. Abra o Web Service no Render.
-2. Acesse a URL publica gerada pelo Render.
-3. Teste:
-   - troca de recorte do mapa;
-   - linha do tempo;
-   - busca por sobrenome;
-   - clique em pontos;
-   - filtro por pais.
-
-Health check do servico:
+Depois de criar o banco, copie a string de conexao no formato:
 
 ```text
-/healthz
+postgresql://usuario:senha@host:porta/database
 ```
 
-### 6. Quando atualizar os dados no futuro
+No Supabase, use a connection string mostrada em `Connect > Session pooler`.
 
-Se o CSV tratado mudar, nao precisa republicar o GitHub por causa dos dados.
+### 3. Carregue os dados no banco remoto
 
-Basta:
+Na sua maquina local:
 
 ```powershell
-$env:DATABASE_URL="COLE_AQUI_A_EXTERNAL_DATABASE_URL_DO_RENDER"
-python .\scripts\load_postgres_map_data.py --skip-immigrant-records
+$env:DATABASE_URL="COLE_AQUI_A_URL_DO_POSTGRES_REMOTO"
+python .\scripts\load_postgres_map_data.py --skip-immigrant-records --light-indexes
 ```
 
-Se fizer mudancas no codigo:
+Esse e o comando recomendado para publicacao gratuita.
+
+### 4. Crie um arquivo local de secrets para testar antes do deploy
+
+Crie o arquivo:
+
+```text
+.streamlit/secrets.toml
+```
+
+Com este conteudo:
+
+```toml
+DATABASE_URL = "postgresql://usuario:senha@host:porta/database"
+```
+
+Esse arquivo nao deve ser commitado. O `.gitignore` do projeto ja cobre isso.
+
+### 5. Teste localmente com o banco remoto
+
+```powershell
+streamlit run .\streamlit_app.py
+```
+
+Se abrir normalmente e o mapa carregar, a conexao remota esta pronta para a nuvem.
+
+### 6. Publique no Streamlit Community Cloud
+
+No Streamlit Community Cloud:
+
+1. Entre em `https://share.streamlit.io`
+2. Clique em `Create app`
+3. Escolha `From existing repo`
+4. Selecione o repositorio `joaopavila120/mapa-interativo-imigracao-no-brasil`
+5. Branch: `main`
+6. Main file path: `streamlit_app.py`
+
+### 7. Abra as configuracoes avancadas no deploy
+
+Ainda na tela de deploy:
+
+1. Clique em `Advanced settings`
+2. Selecione a versao do Python mais proxima do seu ambiente local
+3. Cole os secrets no campo `Secrets`
+
+Use exatamente isto:
+
+```toml
+DATABASE_URL = "postgresql://usuario:senha@host:porta/database"
+```
+
+### 8. Clique em Deploy
+
+Depois disso, o Streamlit Cloud vai:
+
+- copiar os arquivos do repositorio
+- instalar o `requirements.txt`
+- executar `streamlit run` a partir da raiz do repositorio
+- subir o `streamlit_app.py`
+
+### 9. Verifique a aplicacao publicada
+
+Teste estes pontos:
+
+- troca de recorte do mapa
+- linha do tempo
+- filtro por sobrenome
+- filtro por pais
+- clique nos pontos
+- painel de localidade
+
+## Atualizando o projeto depois
+
+### Quando mudar apenas o codigo
 
 ```powershell
 git add .
@@ -219,7 +243,16 @@ git commit -m "Describe your change"
 git push
 ```
 
-O Render fara novo deploy automaticamente.
+O Streamlit Cloud faz redeploy automaticamente.
+
+### Quando mudar os dados
+
+```powershell
+$env:DATABASE_URL="COLE_AQUI_A_URL_DO_POSTGRES_REMOTO"
+python .\scripts\load_postgres_map_data.py --skip-immigrant-records --light-indexes
+```
+
+Se o schema do app nao mudou, normalmente nao e preciso tocar no deploy do Streamlit.
 
 ## Extracao dos PDFs
 
