@@ -85,6 +85,24 @@ Importante:
 - `data/` e `output/` ficam fora do GitHub;
 - a carga do banco e feita a partir da sua maquina local, usando o CSV local;
 - a aplicacao em producao le somente o Postgres.
+- o `render.yaml` atual esta configurado para o plano gratuito do Render.
+
+### Limites do plano gratuito do Render
+
+O deploy gratuito funciona para esse projeto, mas com limites importantes:
+
+- o Web Service gratuito entra em idle depois de um periodo sem trafego e demora para voltar;
+- o Postgres gratuito tem limite de 1 GB;
+- o Postgres gratuito expira depois de 30 dias;
+- o Postgres gratuito nao tem backups.
+
+Por isso, o carregamento recomendado para deploy gratuito usa:
+
+```powershell
+python .\scripts\load_postgres_map_data.py --skip-immigrant-records
+```
+
+Esse modo nao importa a tabela `immigrant_records`, que nao e usada pela aplicacao em runtime, e reduz bastante o tamanho final do banco.
 
 ### 1. Subir o codigo para o GitHub
 
@@ -123,8 +141,8 @@ No Render:
 
 Configuracao atual do `render.yaml`:
 
-- Web Service: `starter`
-- Postgres: `basic-1gb`
+- Web Service: `free`
+- Postgres: `free`
 - Regiao: `virginia`
 
 Se quiser mudar custo ou capacidade, edite o `render.yaml` antes do deploy e faca novo push.
@@ -147,12 +165,11 @@ No seu PowerShell local:
 
 ```powershell
 $env:DATABASE_URL="COLE_AQUI_A_EXTERNAL_DATABASE_URL_DO_RENDER"
-python .\scripts\load_postgres_map_data.py
+python .\scripts\load_postgres_map_data.py --skip-immigrant-records
 ```
 
 Esse script vai:
 
-- importar `immigrant_records`;
 - materializar `map_points`;
 - materializar `map_view_stats`;
 - criar indices para acelerar o mapa.
@@ -162,6 +179,7 @@ Observacao:
 - para esse passo funcionar, o CSV tratado precisa existir localmente em `data\processed\records_clean.csv`;
 - esse arquivo nao vai para o GitHub;
 - ele so serve para alimentar o banco.
+- no modo gratuito, a tabela `immigrant_records` fica de fora de proposito para caber no limite de 1 GB do Render.
 
 ### 5. Validar se a aplicacao online ficou pronta
 
@@ -190,7 +208,7 @@ Basta:
 
 ```powershell
 $env:DATABASE_URL="COLE_AQUI_A_EXTERNAL_DATABASE_URL_DO_RENDER"
-python .\scripts\load_postgres_map_data.py
+python .\scripts\load_postgres_map_data.py --skip-immigrant-records
 ```
 
 Se fizer mudancas no codigo:

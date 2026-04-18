@@ -76,6 +76,11 @@ def parse_args():
         action="store_true",
         help="Mantem as tabelas e apenas faz truncate/reload.",
     )
+    parser.add_argument(
+        "--skip-immigrant-records",
+        action="store_true",
+        help="Nao importa a tabela immigrant_records. Recomendado para deploy gratuito, pois o app nao usa essa tabela em runtime.",
+    )
     return parser.parse_args()
 
 
@@ -119,6 +124,11 @@ def create_immigrant_records_table(conn, headers, keep_existing):
                 "CREATE INDEX IF NOT EXISTS idx_immigrant_records_document_year_num "
                 "ON immigrant_records (document_year_num)"
             )
+
+
+def drop_immigrant_records_table(conn):
+    with conn.cursor() as cur:
+        cur.execute("DROP TABLE IF EXISTS immigrant_records")
 
 
 def copy_csv_into_table(conn, csv_path, table_name, headers):
@@ -259,7 +269,7 @@ def insert_build_meta(conn, csv_path):
         )
 
 
-def create_indexes(conn):
+def create_indexes(conn, include_immigrant_records=True):
     with conn.cursor() as cur:
         cur.execute(
             "CREATE INDEX IF NOT EXISTS idx_map_points_view_year "
@@ -297,7 +307,8 @@ def create_indexes(conn):
             "CREATE INDEX IF NOT EXISTS idx_map_points_full_name_search_trgm "
             "ON map_points USING gin (full_name_search gin_trgm_ops)"
         )
-        cur.execute("ANALYZE immigrant_records")
+        if include_immigrant_records:
+            cur.execute("ANALYZE immigrant_records")
         cur.execute("ANALYZE map_points")
         cur.execute("ANALYZE map_view_stats")
 
@@ -318,11 +329,17 @@ def main():
     try:
         with connect(args.database_url, autocommit=False) as conn:
             print(f"[2/5] Recriando tabelas com base em {csv_path.name}")
-            create_immigrant_records_table(conn, headers, keep_existing=args.keep_existing)
+            if args.skip_immigrant_records:
+                drop_immigrant_records_table(conn)
+            else:
+                create_immigrant_records_table(conn, headers, keep_existing=args.keep_existing)
             create_map_tables(conn, keep_existing=args.keep_existing)
 
-            print("[3/5] Importando immigrant_records via COPY")
-            copy_csv_into_table(conn, csv_path, "immigrant_records", headers)
+            if args.skip_immigrant_records:
+                print("[3/5] Pulando immigrant_records para reduzir o tamanho do banco")
+            else:
+                print("[3/5] Importando immigrant_records via COPY")
+                copy_csv_into_table(conn, csv_path, "immigrant_records", headers)
 
             print("[4/5] Materializando map_points e map_view_stats")
             insert_map_points(conn)
@@ -330,7 +347,7 @@ def main():
             insert_build_meta(conn, csv_path)
 
             print("[5/5] Criando indices e analisando tabelas")
-            create_indexes(conn)
+            create_indexes(conn, include_immigrant_records=not args.skip_immigrant_records)
             conn.commit()
     except Exception as exc:
         raise SystemExit(

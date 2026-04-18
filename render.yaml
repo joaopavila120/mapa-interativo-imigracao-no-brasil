@@ -2,7 +2,7 @@ services:
   - type: web
     name: mapa-interativo-imigracao-no-brasil
     runtime: python
-    plan: starter
+    plan: free
     region: virginia
     branch: main
     buildCommand: pip install -r requirements.txt
@@ -18,7 +18,7 @@ services:
 
 databases:
   - name: mapa-interativo-imigracao-db
-    plan: basic-1gb
+    plan: free
     region: virginia
     postgresMajorVersion: "16"
     databaseName: imigracao

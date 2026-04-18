@@ -1262,8 +1262,6 @@ def postgres_ready():
                     """
                     SELECT
                       (
-                      to_regclass('public.immigrant_records') IS NOT NULL
-                      AND
                       to_regclass('public.map_points') IS NOT NULL
                       AND to_regclass('public.map_view_stats') IS NOT NULL
                       AND to_regclass('public.map_build_meta') IS NOT NULL
