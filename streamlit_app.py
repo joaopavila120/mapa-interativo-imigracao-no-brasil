@@ -209,6 +209,21 @@ st.caption(
 
 if not postgres_ready():
     st.error(database_boot_message())
+    if os.getenv("DATABASE_URL"):
+        st.info(
+            "A `DATABASE_URL` foi detectada neste processo, mas a conexao ainda falhou. "
+            "Confirme a URL, o usuario, a senha e se as tabelas foram carregadas no banco remoto."
+        )
+    else:
+        st.info(
+            "A `DATABASE_URL` nao foi encontrada no processo do Streamlit. "
+            "Defina a variavel de ambiente antes de rodar `streamlit run` ou crie `.streamlit/secrets.toml`."
+        )
+    st.code(
+        "$env:DATABASE_URL=\"postgresql://usuario:senha@host:porta/database\"\n"
+        "streamlit run .\\streamlit_app.py",
+        language="powershell",
+    )
     st.stop()
 
 available_views = [view for view in VIEW_ORDER if view in MAP_CONFIG["views"]]
